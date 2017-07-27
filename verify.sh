@@ -407,3 +407,641 @@ else
 fi
 
 
+#!/bin/bash
+
+#To stop “Control-C”
+trap '' 2
+
+#To stop “Control-Z”
+trap '' SIGTSTP
+
+printf "\n"
+
+# 4.1 and 4.2
+echo -e "\e[4m4.1 and 4.2 : Set User/Group Owner and Permissions on /boot/grub2/grub.cfg\e[0m\n"
+checkgrubowner=`stat -L -c "owner=%U group=%G" /boot/grub2/grub.cfg`
+
+if  [ "$checkgrubowner" == "owner=root group=root" ]
+then
+	checkgrubpermission=`stat -L -c "%a" /boot/grub2/grub.cfg | cut -b 2,3`
+
+	if [ "$checkgrubpermission" == "00" ]
+	then
+		echo "/boot/grub2/grub.cfg - PASSED (Owner, group owner and permission of file is configured correctly)"
+
+	else
+		echo "/boot/grub2/grub.cfg - FAILED (Permission of file is configured incorrectly)"
+	fi
+
+else
+	echo "/boot/grub2/grub.cfg - FAILED (Owner and group owner of file is configured incorrectly)"
+fi
+
+printf "\n\n"
+
+# 4.3
+echo -e "\e[4m4.3 : Set Boot Loader Password\e[0m\n"
+checkbootloaderuser=`grep "^set superusers" /boot/grub2/grub.cfg`
+
+if [ -z "$checkbootloaderuser" ]
+then
+	echo "Boot Loader Password - FAILED (Boot loader is not configured with any superuser)"
+
+else
+	checkbootloaderpassword=`grep "^passwd" /boot/grub2/grub.cfg`
+
+	if [ -z "$checkbootloaderpassword" ]
+	then
+		echo "Boot Loader Password - FAILED (Boot loader is not configured with a password)"
+
+	else
+		echo "Boot Loader Password - PASSED (Boot loader is configured with a superuser and password)"
+	fi
+
+fi	
+
+printf "\n\n"
+# 5.1
+echo -e "\e[4m5.1 : Restrict Core Dumps\e[0m\n"
+checkcoredump=`grep "hard core" /etc/security/limits.conf`
+coredumpval="* hard core 0"
+
+if [ "$checkcoredump" == "$coredumpval" ]
+then
+	checksetuid=`sysctl fs.suid_dumpable`
+	setuidval="fs.suid_dumpable = 0"
+
+	if [ "$checksetuid" == "$setuidval" ]
+	then
+		echo "Core Dump - PASSED (Core dumps are restricted and setuid programs are prevented from dumping core)"
+
+	else
+		echo "Core Dump - FAILED (Setuid programs are not prevented from dumping core)"
+	fi
+
+else
+	echo "Core Dump - FAILED (Core dumps are not restricted)"
+fi
+
+printf "\n\n"
+
+# 5.2
+echo -e "\e[4m5.2 : Enable Randomized Virtual Memory Region Placement\e[0m\n"
+checkvirtualran=`sysctl kernel.randomize_va_space`
+virtualranval="kernel.randomize_va_space = 2"
+
+if [ "$checkvirtualran" == "$virtualranval" ]
+then
+	echo "Randomized Virtual Memory Region Placement - PASSED (Virtual memory is randomized)"
+
+else
+	echo "Randomized Virtual Memory Region Placement - FAILED (Virtual memory is not randomized)"
+fi
+
+printf "\n\n"
+
+# 6.1
+printf "============================================================================\n"
+printf "6.1 : Configure rsyslog\n"
+printf "============================================================================\n"
+printf "\n"
+
+# 6.1.1 and 6.1.2
+echo -e "\e[4m6.1.1 and 6.1.2 : Install the rsyslogpackage and Activate the rsyslog Service\e[0m\n"
+checkrsyslog=`rpm -q rsyslog | grep "^rsyslog"`
+if [ -n "$checkrsyslog" ]
+then
+	checkrsysenable=`systemctl is-enabled rsyslog`
+
+	if [ "$checkrsysenable" == "enabled" ]
+	then
+		echo "Rsyslog - PASSED (Rsyslog is installed and enabled)"
+
+	else
+		echo "Rsyslog - FAILED (Rsyslog is disabled)"
+	fi
+
+else
+	echo "Rsyslog - FAILED (Rsyslog is not installed)"
+fi
+
+printf "\n\n"
+
+# 6.1.3
+echo -e "\e[4m6.1.3 and 6.1.4 : Configure /etc/rsyslog.conf and Create and Set Permissions on rsyslog Log Files\e[0m\n"
+checkvarlogmessageexist=`ls -l /var/log/ | grep messages`
+
+if [ -n "$checkvarlogmessageexist" ]
+then
+	checkvarlogmessageown=`ls -l /var/log/messages | cut -d ' ' -f3,4`
+
+	if [ "$checkvarlogmessageown" == "root root" ]
+	then
+		checkvarlogmessagepermit=`ls -l /var/log/messages | cut -d ' ' -f1`
+
+		if [ "$checkvarlogmessagepermit" == "-rw-------." ]
+		then
+			checkvarlogmessage=`grep /var/log/messages /etc/rsyslog.conf`
+
+			if [ -n "$checkvarlogmessage" ]
+			then
+				checkusermessage=`grep /var/log/messages /etc/rsyslog.conf | grep "^auth,user.*"`
+
+				if [ -n "$checkusermessage" ]
+				then
+					echo "/var/log/messages - PASSED (Owner, group owner, permissions, facility are configured correctly; messages logging is set)"
+
+				else
+					echo "/var/log/messages - FAILED (Facility is not configured correctly)"
+				fi
+
+			else
+				echo "/var/log/messages - FAILED (messages logging is not set)"
+			fi
+
+		else
+			echo "/var/log/messages - FAILED (Permissions of file is configured incorrectly)"
+		fi
+
+	else
+		echo "/var/log/messages - FAILED (Owner and group owner of file is configured incorrectly)"
+	fi
+
+else
+	echo "/var/log/messages - FAILED (/var/log/messages file does not exist)"
+fi
+
+printf "\n"
+
+checkvarlogkernexist=`ls -l /var/log/ | grep kern.log`
+
+if [ -n "$checkvarlogkernexist" ]
+then
+	checkvarlogkernown=`ls -l /var/log/kern.log | cut -d ' ' -f3,4`
+
+	if [ "$checkvarlogkernown" == "root root" ]
+	then
+		checkvarlogkernpermit=`ls -l /var/log/kern.log | cut -d ' ' -f1`
+
+		if [ "$checkvarlogkernpermit" == "-rw-------." ]
+		then
+			checkvarlogkern=`grep /var/log/kern.log /etc/rsyslog.conf`
+
+			if [ -n "$checkvarlogkern" ]
+			then
+				checkuserkern=`grep /var/log/kern.log /etc/rsyslog.conf | grep "^kern.*"`
+
+				if [ -n "$checkuserkern" ]
+				then
+					echo "/var/log/kern.log - PASSED (Owner, group owner, permissions, facility are configured correctly; kern.log logging is set)"
+
+				else
+					echo "/var/log/kern.log - FAILED (Facility is not configured correctly)"
+				fi
+
+			else
+				echo "/var/log/kern.log - FAILED (kern.log logging is not set)"
+			fi
+
+		else
+			echo "/var/log/kern.log - FAILED (Permissions of file is configured incorrectly)"
+		fi
+
+	else
+		echo "/var/log/kern.log - FAILED (Owner and group owner of file is configured incorrectly)"
+	fi
+
+else
+	echo "/var/log/kern.log - FAILED (/var/log/kern.log file does not exist)"
+fi
+
+printf "\n"
+
+checkvarlogdaemonexist=`ls -l /var/log/ | grep daemon.log`
+
+if [ -n "$checkvarlogdaemonexist" ]
+then
+	checkvarlogdaemonown=`ls -l /var/log/daemon.log | cut -d ' ' -f3,4`
+
+	if [ "$checkvarlogdaemonown" == "root root" ]
+	then
+		checkvarlogdaemonpermit=`ls -l /var/log/daemon.log | cut -d ' ' -f1`
+
+		if [ "$checkvarlogdaemonpermit" == "-rw-------." ]
+		then
+			checkvarlogdaemon=`grep /var/log/daemon.log /etc/rsyslog.conf`
+
+			if [ -n "$checkvarlogdaemon" ]
+			then
+				checkuserdaemon=`grep /var/log/daemon.log /etc/rsyslog.conf | grep "^daemon.*"`
+
+				if [ -n "$checkuserdaemon" ]
+				then
+					echo "/var/log/daemon.log - PASSED (Owner, group owner, permissions, facility are configured correctly; daemon.log logging is set)"
+
+				else
+					echo "/var/log/daemon.log - FAILED (Facility is not configured correctly)"
+				fi
+
+			else
+				echo "/var/log/daemon.log - FAILED (daemon.log logging is not set)"
+			fi
+
+		else
+			echo "/var/log/daemon.log - FAILED (Permissions of file is configured incorrectly)"
+		fi
+
+	else
+		echo "/var/log/daemon.log - FAILED (Owner and group owner of file is configured incorrectly)"
+	fi
+
+else
+	echo "/var/log/daemon.log - FAILED (/var/log/daemon.log file does not exist)"
+fi
+
+printf "\n"
+
+checkvarlogsyslogexist=`ls -l /var/log/ | grep syslog.log`
+
+if [ -n "$checkvarlogsyslogexist" ]
+then
+	checkvarlogsyslogown=`ls -l /var/log/syslog.log | cut -d ' ' -f3,4`
+
+	if [ "$checkvarlogsyslogown" == "root root" ]
+	then
+		checkvarlogsyslogpermit=`ls -l /var/log/syslog.log | cut -d ' ' -f1`
+
+		if [ "$checkvarlogsyslogpermit" == "-rw-------." ]
+		then
+			checkvarlogsyslog=`grep /var/log/syslog.log /etc/rsyslog.conf`
+
+			if [ -n "$checkvarlogsyslog" ]
+			then
+				checkusersyslog=`grep /var/log/syslog.log /etc/rsyslog.conf | grep "^syslog.*"`
+
+				if [ -n "$checkusersyslog" ]
+				then
+					echo "/var/log/syslog.log - PASSED (Owner, group owner, permissions, facility are configured correctly; syslog.log logging is set)"
+
+				else
+					echo "/var/log/syslog.log - FAILED (Facility is not configured correctly)"
+				fi
+
+			else
+				echo "/var/log/syslog.log - FAILED (syslog.log logging is not set)"
+			fi
+
+		else
+			echo "/var/log/syslog.log - FAILED (Permissions of file is configured incorrectly)"
+		fi
+
+	else
+		echo "/var/log/syslog.log - FAILED (Owner and group owner of file is configured incorrectly)"
+	fi
+
+else
+	echo "/var/log/syslog.log - FAILED (/var/log/syslog.log file does not exist)"
+fi
+
+printf "\n"
+
+checkvarlogunusedexist=`ls -l /var/log/ | grep unused.log`
+
+if [ -n "$checkvarlogunusedexist" ]
+then
+	checkvarlogunusedown=`ls -l /var/log/unused.log | cut -d ' ' -f3,4`
+
+	if [ "$checkvarlogunusedown" == "root root" ]
+	then
+		checkvarlogunusedpermit=`ls -l /var/log/unused.log | cut -d ' ' -f1`
+
+		if [ "$checkvarlogunusedpermit" == "-rw-------." ]
+		then
+			checkvarlogunused=`grep /var/log/unused.log /etc/rsyslog.conf`
+
+			if [ -n "$checkvarlogunused" ]
+			then
+				checkuserunused=`grep /var/log/unused.log /etc/rsyslog.conf | grep "^lpr,news,uucp,local0,local1,local2,local3,local4,local5,local6.*"`
+
+				if [ -n "$checkuserunused" ]
+				then
+					echo "/var/log/unused.log - PASSED (Owner, group owner, permissions, facility are configured correctly; unused.log logging is set)"
+
+				else
+					echo "/var/log/unused.log - FAILED (Facility is not configured correctly)"
+				fi
+
+			else
+				echo "/var/log/unused.log - FAILED (unused.log logging is not set)"
+			fi
+
+		else
+			echo "/var/log/unused.log - FAILED (Permissions of file is configured incorrectly)"
+		fi
+
+	else
+		echo "/var/log/unused.log - FAILED (Owner and group owner of file is configured incorrectly)"
+	fi
+
+else
+	echo "/var/log/unused.log - FAILED (/var/log/unused.log file does not exist)"
+fi
+
+printf "\n\n"
+
+# 6.1.5
+echo -e "\e[4m6.1.5 : Configure rsyslogto Send Logs to a Remote Log Host\e[0m\n"
+checkloghost=$(grep "^*.*[^|][^|]*@" /etc/rsyslog.conf)
+if [ -z "$checkloghost" ]  # If there is no log host
+then
+	printf "Remote Log Host : FAILED (Remote log host has not been configured)\n"
+else
+	printf "Remote Log Host : PASSED (Remote log host has been configured)\n"
+fi
+
+printf "\n\n"
+# 6.1.6
+echo -e "\e[4m6.1.6 : Accept Remote rsyslog Messages Only on Designated Log Hosts\e[0m\n"
+checkrsysloglis=`grep '^$ModLoad imtcp.so' /etc/rsyslog.conf`
+checkrsysloglis1=`grep '^$InputTCPServerRun' /etc/rsyslog.conf`
+
+if [ -z "$checkrsysloglis" -o -z "$checkrsysloglis1" ]
+then
+	echo "Remote rsyslog - FAILED (Rsyslog is not listening for remote messages)"
+
+else
+	echo "Remote rsyslog - PASSED (Rsyslog is listening for remote messages)"
+fi
+
+printf "\n\n"
+
+printf "============================================================================\n"
+printf "6.2 : Configure System Accounting\n"
+printf "============================================================================\n"
+printf "\n"
+echo "----------------------------------------------------------------------------"
+printf "6.2.1 : Configure Data Retention\n"
+echo "----------------------------------------------------------------------------"
+printf "\n"
+
+# 6.2.1.1
+echo -e "\e[4m6.2.1.1 : Configure Audit Log Storage Size\e[0m\n"
+checklogstoragesize=`grep max_log_file[[:space:]] /etc/audit/auditd.conf | awk '{print $3}'`
+
+if [ "$checklogstoragesize" == 5 ]
+then
+	echo "Audit Log Storage Size - PASSED (Maximum size of audit log files is configured correctly)"
+
+else
+	echo "Audit Log Storage Size - FAILED (Maximum size of audit log files is not configured correctly)"
+fi
+
+printf "\n\n"
+
+# 6.2.1.2
+echo -e "\e[4m6.2.1.2 : Keep All Auditing Information\e[0m\n"
+checklogfileaction=`grep max_log_file_action /etc/audit/auditd.conf | awk '{print $3}'`
+ 
+if [ "$checklogfileaction" == keep_logs ]
+then
+	echo "Audit Log File Action - PASSED (Action of the audit log file is configured correctly)"
+
+else
+	echo "Audit Log File Action - FAILED (Action of the audit log file is not configured correcly)"
+fi
+
+printf "\n\n"
+
+# 6.2.1.3
+echo -e "\e[4m6.2.1.3 : Disable System on Audit Log Full\e[0m\n"
+checkspaceleftaction=`grep space_left_action /etc/audit/auditd.conf | grep "email"`
+
+if [ -n "$checkspaceleftaction" ]
+then
+	checkactionmailacc=`grep action_mail_acct /etc/audit/auditd.conf | awk '{print $3}'`
+	if [ "$checkactionmailacc" == root ]
+	then
+		checkadminspaceleftaction=`grep admin_space_left_action /etc/audit/auditd.conf | awk '{print $3}'`
+		if [ "$checkadminspaceleftaction" == halt ]
+		then
+			echo "Disable System - PASSED (Auditd is correctly configured to notify the administrator and halt the system when audit logs are full)"
+		else
+			echo "Disable System - FAILED (Auditd is not configured to halt the system when audit logs are full)"
+		fi
+
+	else
+		echo "Disable System - FAILED (Auditd is not configured to notify the administrator when audit logs are full)"
+	fi
+	
+else
+	echo "Disable System - FAILED (Auditd is not configured to notify the administrator by email when audit logs are full)"
+fi
+
+printf "\n\n"
+
+# 6.2.1.4
+echo -e "\e[4m6.2.1.4 : Enable auditd Service\e[0m\n"
+checkauditdservice=`systemctl is-enabled auditd`
+
+if [ "$checkauditdservice" == enabled ]
+then
+	echo "Auditd Service - PASSED (Auditd is enabled)"
+
+else
+	echo "Auditd Service - FAILED (Auditd is not enabled)"
+fi
+
+printf "\n\n"
+
+# 6.2.1.5
+echo -e "\e[4m6.2.1.5 : Enable Auditing for Processes That Start Prior to auditd\e[0m\n"
+checkgrub=$(grep "linux" /boot/grub2/grub.cfg | grep "audit=1") 
+if [ -z "$checkgrub" ]
+then
+	printf "System Log Processes : FAILED (System is not configured to log processes that start prior to auditd\n"
+
+else
+	printf "System Log Processes : PASSED (System is configured to log processes that start prior to auditd\n"
+fi
+
+printf "\n\n"
+
+# 6.2.1.6
+echo -e "\e[4m6.2.1.6 : Record Events That Modify Date and Time Information\e[0m\n"
+checksystem=`uname -m | grep "64"`
+checkmodifydatetimeadjtimex=`egrep 'adjtimex|settimeofday|clock_settime' /etc/audit/audit.rules`
+
+if [ -z "$checksystem" ]
+then
+	echo "It is a 32-bit system."
+	printf "\n"
+	if [ -z "$checkmodifydatetimeadjtimex" ]
+	then
+        echo "Date & Time Modified Events - FAILED (Events where system date and/or time has been modified are not captured)"
+
+	else
+		echo "Date & Time Modified Events - PASSED (Events where system date and/or time has been modified are captured)"
+	fi
+
+else
+	echo "It is a 64-bit system."
+	printf "\n" 
+	if [ -z "$checkmodifydatetimeadjtimex" ]
+	then
+        echo "Date & Time Modified Events - FAILED (Events where system date and/or time has been modified are not captured)"
+
+	else
+		echo "Date & Time Modified Events - PASSED (Events where system date and/or time has been modified are captured)"
+	fi
+
+fi
+
+printf "\n\n"
+
+# 6.2.1.7
+echo -e "\e[4m6.2.1.7 : Record Events That Modify User/Group Information\e[0m\n"
+checkmodifyusergroupinfo=`egrep '\/etc\/group' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifyusergroupinfo" ]
+then
+        echo "Group Configuration - FAILED (Group is not configured)"
+
+else
+        echo "Group Configuration - PASSED (Group is already configured)"
+fi
+
+printf "\n"
+
+checkmodifyuserpasswdinfo=`egrep '\/etc\/passwd' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifyuserpasswdinfo" ]
+then
+        echo "Password Configuration - FAILED (Password is not configured)"
+
+else
+        echo "Password Configuration - PASSED (Password is configured)"
+fi
+
+printf "\n"
+
+checkmodifyusergshadowinfo=`egrep '\/etc\/gshadow' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifyusergshadowinfo" ]
+then
+        echo "GShadow Configuration - FAILED (GShadow is not configured)"
+
+else
+        echo "GShadow Configuration - PASSED (GShadow is configured)"
+fi
+
+printf "\n"
+
+# 6.2.1.8
+checkmodifyusershadowinfo=`egrep '\/etc\/shadow' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifyusershadowinfo" ]
+then
+        echo "Shadow Configuration - FAILED (Shadow is not configured)"
+
+else
+        echo "7Shadow Configuration - PASSED (Shadow is configured)"
+fi
+
+printf "\n"
+
+checkmodifyuseropasswdinfo=`egrep '\/etc\/security\/opasswd' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifyuseropasswdinfo" ]
+then
+        echo "OPasswd Configuration- FAILED (OPassword not configured)"
+
+else
+        echo "OPasswd Configuration - PASSED (OPassword is configured)"
+fi
+
+printf "\n\n"
+
+# 6.2.1.8
+echo -e "\e[4m6.2.1.8 : Record Events That Modify the System's Network Environment\e[0m\n"
+checksystem=`uname -m | grep "64"`
+checkmodifynetworkenvironmentname=`egrep 'sethostname|setdomainname' /etc/audit/audit.rules`
+
+if [ -z "$checksystem" ]
+then
+	echo "It is a 32-bit system."
+	printf "\n"
+	if [ -z "$checkmodifynetworkenvironmentname" ]
+	then
+        	echo "Modify the System's Network Environment Events - FAILED (Sethostname and setdomainname is not configured)"
+
+	else
+		echo "Modify the System's Network Environment Events - PASSED (Sethostname and setdomainname is configured)"
+	fi
+
+else
+	echo "It is a 64-bit system."
+	printf "\n"
+	if [ -z "$checkmodifynetworkenvironmentname" ]
+	then
+        echo "Modify the System's Network Environment Events - FAILED (Sethostname and setdomainname is not configured)"
+
+	else
+		echo "Modify the System's Network Environment Events - PASSED (Sethostname and setdomainname is configured)"
+	fi
+
+fi
+
+printf "\n"
+
+checkmodifynetworkenvironmentissue=`egrep '\/etc\/issue' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifynetworkenvironmentissue" ]
+then
+    echo "Modify the System's Network Environment Events - FAILED (/etc/issue is not configured)"
+
+else
+    echo "Modify the System's Network Environment Events - PASSED (/etc/issue is configured)"
+fi
+
+printf "\n"
+
+checkmodifynetworkenvironmenthosts=`egrep '\/etc\/hosts' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifynetworkenvironmenthosts" ]
+then
+    echo "Modify the System's Network Environment Events - FAILED (/etc/hosts is not configured)"
+
+else
+     echo "Modify the System's Network Environment Events - PASSED (/etc/hosts is configured)"
+fi
+
+printf "\n"
+
+checkmodifynetworkenvironmentnetwork=`egrep '\/etc\/sysconfig\/network' /etc/audit/audit.rules`
+
+if [ -z "$checkmodifynetworkenvironmentnetwork" ]
+then
+    echo "Modify the System's Network Environment Events - FAILED (/etc/sysconfig/network is not configured)"
+
+else
+    echo "Modify the System's Network Environment Events - PASSED (/etc/sysconfig/network is configured)"
+fi
+
+printf "\n\n"
+# 6.2.1.9
+echo -e "\e[4m6.2.1.9 : Record Events That Modify the System's Mandatory Access Controls\e[0m\n"
+checkmodifymandatoryaccesscontrol=`grep \/etc\/selinux /etc/audit/audit.rules`
+
+if [ -z "$checkmodifymandatoryaccesscontrol" ]
+then
+	echo "Modify the System's Mandatory Access Controls Events - FAILED (Recording of modified system's mandatory access controls events is not configured)"
+
+else
+	echo "Modify the System's Mandatory Access Controls Events - PASSED (Recording of modified system's mandatory access controls events is configured)"
+fi
+
+printf "\n\n"
+
+# Force exit
+read -n 1 -s -r -p "Press any key to exit!"
+kill -9 $PPID
