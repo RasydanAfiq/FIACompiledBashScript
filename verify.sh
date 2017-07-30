@@ -1616,6 +1616,104 @@ echo "--------------------------------------------------------------------------
 echo ' '
 echo "${bold}End of verification.${normal}"
 echo ' '
+
+#!/bin/bash
+GREEN="\033[0;32m"
+RED="\033[0;31m"
+NC="\033[0m"
+bold=$(tput bold)
+normal=$(tput sgr0)
+
+####################################### 7.16 ######################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.16 Check Groups in /etc/passwd${normal}"
+echo ' '
+
+for i in $(cut -s -d: -f4 /etc/passwd | sort -u); do
+	grep -q -P "^.*?:x:$i:" /etc/group
+	if [ $? -ne 0 ]
+	then
+		echo -e "${RED}Group $i is referenced by /etc/passwd but does not exist in /etc/group${NC}"
+	else
+		echo -e "${GREEN}Group $i is referenced by /etc/passwd and exist in /etc/group${NC}"
+	fi
+done
+
+####################################### 7.17 ######################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.17 Check That Users Are Assigned Valid Home Directories && Home Directory Ownership is Correct${normal}"
+echo ' '
+
+cat /etc/passwd | awk -F: '{ print $1,$3,$6 }' | while read user uid dir; do
+
+	#checking validity of  user assigned home directories
+	if [ $uid -ge 500 -a ! -d"$dir" -a $user != "nfsnobody" ]
+	then
+		echo -e "${RED}The home directory $dir of user $user does not exist.${NC}"
+		
+	else
+		echo -e "${GREEN}The home directory $dir of user $user exist.${NC}"
+	fi
+
+	#checking user home directory ownership
+	if [ $uid -ge 500 -a -d"$dir" -a $user != "nfsnobody" ]
+	then
+		owner=$(stat -L -c "%U" "$dir")
+		if [ "$owner" != "$user" ]
+		then
+			echo -e "${RED}The home directory ($dir) of user $user is owned by $owner.${NC}"
+		else
+
+			echo -e "${GREEN}Then home directory ($dir) of user $user is owned by $owner.${NC}"
+		fi
+	fi
+		
+	
+done
+
+####################################### 7.18 ######################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.18 Check for Duplicate UIDs ${normal}"
+echo ' ' 
+
+/bin/cat /etc/passwd | /bin/cut -f3 -d":" | /bin/sort -n | /usr/bin/uniq -c | while read x; do
+	[ -z "${x}" ] && break
+	set - $x
+	if [ $1 -gt 1 ]
+	then
+		users=`/bin/gawk -F: '($3 == n) { print $1 }' n=$2 /etc/passwd | /user/bin/xargs`
+		echo -e "${RED}Duplicate UID $2: ${users}${NC}"
+	else
+		echo -e "${GREEN}There is no duplicate UID $2 ${NC}" 
+	fi
+
+done
+
+####################################### 7.19 ######################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.19 Check for Duplicate GIDs ${normal}"
+echo ' '
+
+/bin/cat /etc/group | /bin/cut -f3 -d"." | /bin/sort -n | /usr/bin/uniq -c | while read x; do
+	[ -z "${x}" ] && break
+	set - $x
+	if [ $1 -gt 1 ]
+	then
+		grp=`/bin/gawk -F: '($3 == n) { print $1 }' n=$2 /etc/group | xargs`
+		echo -e "${RED}Duplicate GID $2: $grp$.{NC}"
+	else
+		echo -e "${GREEN}There is no duplicated GID $2 ${NC}"
+	fi
+done
+
 echo "8.1 Set Warning Banner for Standard Login Services"
 
 current=$(cat /etc/motd)
@@ -1657,4 +1755,6 @@ if [[ $current3 =~ $string1 || $current3 =~ $string2 || $current3 = ~$string3 ||
 else
         echo "/etc/issue.net has no issues. Continuing with verification"
 fi
+
+
 
