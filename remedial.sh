@@ -2706,3 +2706,133 @@ else
 	fi
 fi
 
+#!/bin/bash
+
+#10.1 remedy
+remsshprotocol=`grep "^Protocol 2" /etc/ssh/sshd_config`
+if [ "$remsshprotocol" != "Protocol 2" ]
+then
+	sed -ie "23s/#//" /etc/ssh/sshd_config
+fi
+
+#10.2 remedy
+remsshloglevel=`grep "^LogLevel" /etc/ssh/sshd_config`
+if [ "$remsshloglevel" != "LogLevel INFO" ]
+then
+	sed -ie "43s/#//" /etc/ssh/sshd_config
+fi
+
+#10.3 remedy
+remdeterusergroupownership=`grep "^LogLevel" /etc/ssh/sshd_config`
+if [ -z "$remdeterusergroupownership" ]
+then
+	chown root:root /etc/ssh/sshd_config
+	chmod 600 /etc/ssh/sshd_config
+fi
+
+#10.4 remedy
+remsshx11forwarding=`grep "^X11Forwarding" /etc/ssh/sshd_config`
+if [ "$remsshx11forwarding" != "X11Forwarding no" ]
+then
+	sed -ie "116s/#//" /etc/ssh/sshd_config
+	sed -ie "117s/^/#/" /etc/ssh/sshd_config
+fi
+
+#10.5 remedy
+maxauthtries=`grep "^MaxAuthTries 4" /etc/ssh/sshd_config`
+if [ "$maxauthtries" != "MaxAuthTries 4" ]
+then
+	sed -ie "50d" /etc/ssh/sshd_config
+	sed -ie "50iMaxAuthTries 4" /etc/ssh/sshd_config
+fi
+
+#10.6 remedy
+ignorerhosts=`grep "^IgnoreRhosts" /etc/ssh/sshd_config`
+if [ "$ignorerhosts" != "IgnoreRhosts yes" ]
+then
+	sed -ie "73d" /etc/ssh/sshd_config
+	sed -ie "73iIgnoreRhosts yes" /etc/ssh/sshd_config
+fi
+
+#10.7 remedy
+hostbasedauthentication=`grep "^HostbasedAuthentication" /etc/ssh/sshd_config`
+if [ "$hostbasedauthentication" != "HostbasedAuthentication no" ]
+then
+	sed -ie "68d" /etc/ssh/sshd_config
+	sed -ie "68iHostbasedAuthentication no" /etc/ssh/sshd_config
+fi
+
+#10.8 remedy
+remsshrootlogin=`grep "^PermitRootLogin" /etc/ssh/sshd_config`
+if [ "$remsshrootlogin" != "PermitRootLogin no" ]
+then
+	sed -ie "48d" /etc/ssh/sshd_config
+	sed -ie "48iPermitRootLogin no" /etc/ssh/sshd_config
+fi
+
+#10.9 remedy
+remsshemptypswd=`grep "^PermitEmptyPasswords" /etc/ssh/sshd_config`
+if [ "$remsshemptypswd" != "PermitEmptyPasswords no" ]
+then
+	sed -ie "77d" /etc/ssh/sshd_config
+	sed -ie "77iPermitEmptyPasswords no" /etc/ssh/sshd_config
+fi
+
+#10.10 remedy
+remsshcipher=`grep "Ciphers" /etc/ssh/sshd_config`
+if [ "$remsshcipher" != "Ciphers aes128-ctr,aes192-ctr,aes256-ctr" ]
+then
+	sed -ie "36d" /etc/ssh/sshd_config
+	sed -ie "36iCiphers aes128-ctr,aes192-ctr,aes256-ctr" /etc/ssh/sshd_config
+fi
+
+#10.11 remedy
+remsshcai=`grep "^ClientAliveInterval" /etc/ssh/sshd_config`
+remsshcacm=`grep "^ClientAliveCountMax" /etc/ssh/sshd_config`
+
+if [ "$remsshcai" != "ClientAliveInterval 300" ]
+then
+	sed -ie "127d" /etc/ssh/sshd_config
+	sed -ie "127iClientAliveInterval 300" /etc/ssh/sshd_config
+fi
+
+if [ "$remsshcacm" != "ClientAliveCountMax 0" ]
+then
+	sed -ie "128d" /etc/ssh/sshd_config
+	sed -ie "128iClientAliveCountMax 0" /etc/ssh/sshd_config
+fi
+
+#10.12 remedy
+remsshalwusrs=`grep "^AllowUsers" /etc/ssh/sshd_config`
+remsshalwgrps=`grep "^AllowGroups" /etc/ssh/sshd_config`
+remsshdnyusrs=`grep "^DenyUsers" /etc/ssh/sshd_config`
+remsshdnygrps=`grep "^DenyGroups" /etc/ssh/sshd_config`
+
+if [ -z "$remsshalwusrs" -o "$remsshalwusrs" == "AllowUsers[[:space:]]" ]
+then
+	echo "AllowUsers user1" >> /etc/ssh/sshd_config
+fi
+
+if [ -z "$remsshalwgrps" -o "$remsshalwgrps" == "AllowUsers[[:space:]]" ]
+then
+	echo "AllowGroups group1" >> /etc/ssh/sshd_config
+fi
+
+if [ -z "$remsshdnyusrs" -o "$remsshdnyusrs" == "AllowUsers[[:space:]]" ]
+then
+	echo "DenyUsers user2 user3" >> /etc/ssh/sshd_config
+fi
+
+if [ -z "$remsshdnygrps" -o "$remsshdnygrps" == "AllowUsers[[:space:]]" ]
+then
+	echo "DenyGroups group2" >> /etc/ssh/sshd_config
+fi
+
+#10.13 remedy
+remsshbanner=`grep "Banner" /etc/ssh/sshd_config | awk '{ print $2 }'`
+
+if [ "$remsshbanner" != "/etc/issue.net" -o "$remsshbanner" != "/etc/issue" ]
+then
+	sed -ie "138d" /etc/ssh/sshd_config
+	sed -ie "138iBanner /etc/issue.net" /etc/ssh/sshd_config
+fi

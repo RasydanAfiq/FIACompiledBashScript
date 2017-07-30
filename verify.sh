@@ -2078,3 +2078,167 @@ else
     	echo "Please ensure that a $cronAllowFile is created for security purposes."
 fi
 
+#!/bin/bash
+
+#10.1 verification 
+chksshprotocol=`grep "^Protocol 2" /etc/ssh/sshd_config`
+
+if [ "$chksshprotocol" == "Protocol 2" ]
+then
+	echo "SSH (Protocol) - Pass"
+else
+	echo "SSH (Protocol) - Fail"
+fi
+
+#10.2 verification
+chksshloglevel=`grep "^LogLevel INFO" /etc/ssh/sshd_config`
+
+if [ "$chksshloglevel" == "LogLevel INFO" ]
+then
+	echo "SSH (LogLevel) - Pass"
+else
+	echo "SSH (LogLevel) - Fail"
+fi
+
+#10.3 verification 
+deterusergroupownership=`/bin/ls -l /etc/ssh/sshd_config | grep "root root" | grep "\-rw-------"`
+
+if [ -n "deterusergroupownership" ] #-n means not null, -z means null
+then
+	echo "Ownership (User & Group)- Pass"
+else
+	echo "Ownership (User & Group)- Fail"
+fi
+
+#10.4 verification 
+chkx11forwarding=`grep "^X11Forwarding no" /etc/ssh/sshd_config`
+
+if [ "$chkx11forwarding" == "X11Forwarding no" ]
+then
+	echo "SSH (X11Forwarding no) - Pass"
+else
+	echo "SSH (X11Forwarding no) - Fail"
+fi
+
+#10.5 verification
+maxauthtries=`grep "^MaxAuthTries 4" /etc/ssh/sshd_config`
+
+if [ "$maxauthtries" == "MaxAuthTries 4" ]
+then
+	echo "SSH (MaxAuthTries 4) - Pass"
+else
+	echo "SSH (MaxAuthTries 4) - Fail"
+fi
+
+#10.6 verification
+ignorerhosts=`grep "^IgnoreRhosts yes" /etc/ssh/sshd_config`
+
+if [ "$ignorerhosts" == "IgnoreRhosts yes" ]
+then
+	echo "SSH (IgnoreRhosts yes) - Pass"
+else
+	echo "SSH (IgnoreRhosts yes) - Fail"
+fi
+
+#10.7 verification
+hostbasedauthentication=`grep "^HostbasedAuthentication no" /etc/ssh/sshd_config`
+
+if [ "$hostbasedauthentication" == "HostbasedAuthentication no" ]
+then
+	echo "SSH (HostbasedAuthentication no) - Pass"
+else
+	echo "SSH (HostbasedAuthentication no) - Fail"
+fi
+
+
+#10.8 verification
+chksshrootlogin=`grep "^PermitRootLogin" /etc/ssh/sshd_config`
+
+if [ "$chksshrootlogin" == "PermitRootLogin no" ]
+then
+	echo "SSH (Permit Root Login) - Pass"
+else
+	echo "SSH (Permit Root Login) - Fail"
+fi
+
+#10.9 verification
+chksshemptypswd=`grep "^PermitEmptyPasswords" /etc/ssh/sshd_config`
+
+if [ "$chksshemptypswd" == "PermitEmptyPasswords no" ]
+then
+	echo "SSH (Permit Empty Passwords) - Pass"
+else
+	echo "SSH (Permit Empty Passwords) - Fail"
+fi
+
+#10.10 verification
+chksshcipher=`grep "Ciphers" /etc/ssh/sshd_config`
+
+if [ "$chksshcipher" == "Ciphers aes128-ctr,aes192-ctr,aes256-ctr" ]
+then
+	echo "SSH (Cipher) - Pass"
+else
+	echo "SSH (Cipher) - Fail"
+fi
+
+#10.11 verification
+chksshcai=`grep "^ClientAliveInterval" /etc/ssh/sshd_config`
+chksshcacm=`grep "^ClientAliveCountMax" /etc/ssh/sshd_config`
+
+if [ "$chksshcai" == "ClientAliveInterval 300" ]
+then
+	echo "SSH (ClientAliveInterval) - Pass"
+else
+	echo "SSH (ClientAliveInterval) - Fail"
+fi
+
+if [ "$chksshcacm" == "ClientAliveCountMax 0" ]
+then
+	echo "SSH (ClientAliveCountMax) - Pass"
+else
+	echo "SSH (ClientAliveCountMax) - Fail"
+fi
+
+#10.12 verification		*NOTE: Manually created users and groups as question was not very specific*
+chksshalwusrs=`grep "^AllowUsers" /etc/ssh/sshd_config`
+chksshalwgrps=`grep "^AllowGroups" /etc/ssh/sshd_config`
+chksshdnyusrs=`grep "^DenyUsers" /etc/ssh/sshd_config`
+chksshdnygrps=`grep "^DenyGroups" /etc/ssh/sshd_config`
+
+if [ -z "$chksshalwusrs" -o "$chksshalwusrs" == "AllowUsers[[:space:]]" ]
+then
+	echo "SSH (AllowUsers) - Fail"
+else
+	echo "SSH (AllowUsers) - Pass"
+fi
+
+if [ -z "$chksshalwgrps" -o "$chksshalwgrps" == "AllowGroups[[:space:]]" ]
+then
+	echo "SSH (AllowGroups) - Fail"
+else
+	echo "SSH (AllowGroups) - Pass"
+fi
+
+if [ -z "$chksshdnyusrs" -o "$chksshdnyusrs" == "DenyUsers[[:space:]]" ]
+then
+	echo "SSH (DenyUsers) - Fail"
+else
+	echo "SSH (DenyUsers) - Pass"
+fi
+
+if [ -z "$chksshdnygrps" -o "$chksshdnygrps" == "DenyGroups[[:space:]]" ]
+then
+	echo "SSH (DenyGroups) - Fail"
+else	
+	echo "SSH (DenyGroups) - Pass"
+fi
+
+#10.13 verification
+chksshbanner=`grep "Banner" /etc/ssh/sshd_config | awk '{ print $2 }'`
+
+if [ "$chksshbanner" == "/etc/issue.net" -o "$chksshbanner" == "/etc/issue" ]
+then
+	echo "SSH (Banner) - Pass"
+else
+	echo "SSH (Banner) - Fail"
+fi
