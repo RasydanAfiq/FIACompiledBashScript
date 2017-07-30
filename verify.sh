@@ -1213,3 +1213,448 @@ then
 else
 	echo "PASSED - System logs recorded"
 fi
+
+#!/bin/bash
+echo "7.1 Set Password Expiration Days"
+
+value=$(cat /etc/login.defs | grep "^PASS_MAX_DAYS" | awk '{ print $2 }')
+
+standard=90 
+
+if [ ! $value = $standard ]; then
+  echo "Audit status: FAILED!"
+elif [ $value = $standard ]; then
+  echo "Audit status: PASSED!"
+else
+  echo "ERROR: FATAL ERROR, CONTACT SYSTEM ADMINISTRATOR!"
+fi
+#########################################################################
+echo "7.2 Set Password Change Minimum Number of Days"
+value=$(cat /etc/login.defs | grep "^PASS_MIN_DAYS" | awk '{ print $2 }')
+
+standard=7 
+
+if [ ! $value = $standard ]; then
+	echo "Audit status: FAILED!"
+elif [ $value = $standard ]; then
+	echo "Audit status: PASSED!"
+else
+	echo ERROR: "FATAL ERROR, CONTACT SYSTEM ADMINISTRATOR!"
+fi
+#########################################################################
+echo "7.3 Set Password Expiring Warning Days"
+value=$(cat /etc/login.defs | grep "^PASS_WARN_AGE" | awk '{ print $2 }')
+
+standard=7 
+
+if [ ! $value = $standard ]; then
+	echo "Audit status: FAILED!"
+elif [ $value = $standard ]; then
+	echo "Audit status: PASSED!"
+else
+	echo ERROR: "FATAL ERROR, CONTACT SYSTEM ADMINISTRATOR!"
+fi
+#########################################################################
+#7.4 Disable System Accounts
+
+echo "7.4 Disable System Accounts"
+
+current=$(egrep -v "^\+" /etc/passwd | awk -F: '($1!="root" && $1!="sync" && $1!="shutdown" && $1!="halt" && $3<1000 && $7!="/sbin/nologin" && $7!="/bin/false") { print $1 }')
+
+if [ -z "$current" ]; then
+	echo "Audit status: PASSED!"
+elif [ ! -z "$current" ]; then
+	echo "Audit status: FAILED!"
+else
+	echo "FATAL ERROR. PLEASE CONTACT YOUR SYSTEM ADMINISTRATOR!"
+fi
+#########################################################################
+echo "7.5 Set Default Group for root Account"
+
+current=$(grep "^root:" /etc/passwd | cut -f4 -d:)
+
+if [ "$current" == 0 ]; then
+        echo "Audit status: PASSED!"
+else
+        echo "Audit status: FAILED!"
+fi
+#########################################################################
+echo "7.6 Set Default umask for Users"
+
+current=$(egrep -h "\s+umask ([0-7]{3})" /etc/bashrc /etc/profile | awk '{print $2}')
+
+counter=0
+
+for line in ${current}
+do
+	if [ "${line}" != "077" ] 
+	then
+       		((counter++))	
+	fi
+done
+
+if [ ${counter} == 0 ]
+then 
+	echo "Audit status: PASSED!"
+else     
+	echo "Audit status: FAILED!"
+fi
+#########################################################################
+echo "7.7 Lock Inactive User Accounts"
+
+current=$(useradd -D | grep INACTIVE | awk -F= '{print $2}')
+
+if [ "${current}" -le 30 ] && [ "${current}" -gt 0 ]
+then
+        echo "Audit status: PASSED!"
+else
+        echo "Audit status: FAILED!"
+fi
+#########################################################################
+echo "7.8 Ensure Password Fields Are Not Empty"
+current=$(cat /etc/shadow | awk -F: '($2 == "") { print $1 }')
+
+if [ "$current" = "" ];then
+	echo "Audit status: PASSED!"
+else
+	echo "Audit status: FAILED!" 
+fi
+#########################################################################
+echo "7.9 Verify No Legacy "+" Entries Exist in /etc/passwd, /etc/shadow and /etc/group files"
+
+passwd=$(grep '^+:' /etc/passwd) 
+shadow=$(grep '^+:' /etc/shadow)
+group=$(grep '^+:' /etc/group)
+
+if [ "$passwd" == "" ]  && [ "$shadow" == "" ] && [ "$group" == "" ];then
+	echo "Audit Status: PASSED!"
+else
+	echo "Audit Status: FAILED!"
+fi
+#########################################################################
+echo "7.10 Verify No UID 0 Accounts Exist Other Than Root"
+
+current=$(/bin/cat /etc/passwd | /bin/awk -F: '($3 ==0) { print $1 }')
+
+if [ "$current" = "root" ];then
+	echo "Audit status: PASSED!"
+else
+	echo "Audit status: FAILED!"
+fi
+#########################################################################
+echo "7.11 Ensure root PATH Integrity"
+
+check=0
+
+#Check for Empty Directory in PATH (::)
+if [ "`echo $PATH | grep ::`" != "" ]
+then
+	#echo "Empty Directory in PATH (::)"
+	((check++))
+fi
+
+#Check for Trailing : in PATH
+if [ "`echo $PATH | grep :$`" != "" ]
+then
+	#echo "Trailing : in PATH"
+	((check++))
+fi
+
+p=`echo $PATH | sed -e 's/::/:/' -e 's/:$//' -e 's/:/ /g'`
+set -- $p
+while [ "$1" != "" ]
+do
+	#Check if PATH contains .
+        if [ "$1" = "." ]
+        then
+		#echo "PATH contains ."
+		((check++))
+		shift
+		continue
+        fi
+	
+	#Check if PATH entry is a directory
+        if [ -d $1 ]
+        then
+                dirperm=`ls -ldH $1 | cut -f1 -d" "`
+                #Check if Group Write permission is set on directory
+		if [ `echo $dirperm | cut -c6` != "-" ]
+                then
+			#echo "Group Write permission set on directory $1"
+			((check++))
+                fi
+		#Check if Other Write permission is set on directory
+                if [ `echo $dirperm | cut -c9` != "-" ]
+		then
+			#echo "Other Write permission set on directory $1"
+			((check++))
+                fi
+		
+		#Check if PATH entry is owned by root
+                dirown=`ls -ldH $1 | awk '{print $3}'`
+                if [ "$dirown" != "root" ]
+                then
+                       #echo $1 is not owned by root
+			((check++))
+                fi
+        else
+		#echo $1 is not a directory
+		((check++))
+        fi
+	shift
+done
+
+#echo ${check}
+if [ ${check} == 0 ]
+then
+	echo "Audit status: PASSED!"
+elif [ ${check} != 0 ]
+then
+	echo "Audit status: FAILED!"
+else
+	echo "FATAL ERROR. PLEASE CONTACT YOUR SYSTEM ADMINISTRATOR!"
+fi
+#########################################################################
+
+GREEN="\033[0;32m"
+RED="\033[0;31m"
+NC="\033[0m"
+bold=$(tput bold)
+normal=$(tput sgr0)
+
+####################################### 7.12 #######################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.12 Check Permissions on User Home Directories${normal}"
+echo ' '
+intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+
+if [ -z "$intUserAcc" ]
+then
+        echo "There is no interactive user account."
+        echo ' '
+else
+        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+
+                echo "Checking user home directory $line"
+                permission="$(ls -ld $line)"
+                echo " Permission is ${permission:0:10}"
+                ## check 6th field ##
+                if [ ${permission:5:1} == *"w"* ]
+                then
+                        echo -e "${RED} 6th field of permission is w ${NC}"
+                else
+                        echo -e "${GREEN} 6th field of permission is '-' ${NC}"
+                fi
+
+                ## check 8th field ##
+                if [ ${permission:7:1} == "-" ]
+                then
+                        echo -e "${GREEN} 8th field of permission is '-' ${NC}"
+                else
+                        echo -e "${RED} 8th field of permission is not '-' ${NC}"
+ fi
+
+                ## check 9th field ##
+                if [ ${permission:8:1} == "-" ]
+                then
+                        echo -e "${GREEN} 9th field of permission is '-' ${NC}"
+                else
+                        echo -e "${RED} 9th field of permission is not '-' ${NC}"
+                fi
+
+                ## check 10th field ##
+                if [ ${permission:9:1} == "-" ]
+                then
+                        echo -e "${GREEN} 10th field of permission is '-' ${NC}"
+                else
+                        echo -e "${RED} 10th field of permission is not '-' ${NC}"
+                fi
+                echo " "
+        done
+fi
+
+####################################### 7.13 #######################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.13 Check User Dot File Permissions${normal}"
+echo ' '
+
+intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+
+if [ -z "$intUserAcc" ]
+then
+        echo "There is no interactive user account."
+        echo ' '
+else
+        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+
+                echo "Checking hidden files in user home directory $line"
+                cd $line
+                hiddenfiles="$(echo .*)"
+
+                if [ -z "$hiddenfiles" ]
+                then
+echo " There is no hidden files"
+                else
+                        for file in ${hiddenfiles[*]}
+                        do
+                                permission="$(stat -c %A $file)"
+                                echo " Checking hidden file $file"
+                                echo "  Permission is $permission"
+
+                                ## check 6th field ##
+                                if [ ${permission:5:1} == *"w"* ]
+                                then
+                                        echo -e " ${RED} 6th field of permission is 'w' ${NC}"
+                                else
+                                        echo -e " ${GREEN} 6th field of permission is not 'w' ${NC}"
+                                fi
+
+                                ## check 9th field ##
+                                if [ ${permission:8:1} == *"w"* ]
+                                then
+                                        echo -e " ${RED} 9th field of permission is 'w' ${NC}"
+                                else
+                                        echo -e " ${GREEN} 9th field of permission is not 'w' ${NC}"
+                                fi
+ echo ' '
+                        done
+                fi
+        done
+fi
+
+####################################### 7.14 #######################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.14 Check Existence of and Permissions on User .netrc Files${normal}"
+echo ' '
+intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+
+if [ -z "$intUserAcc" ]
+then
+        echo " There is no interactive user account."
+        echo ' '
+else
+        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+ echo "Checking user home directory $line"
+                permission="$(ls -al $line | grep .netrc)"
+                if  [ -z "$permission" ]
+                then
+                        echo " There is no .netrc file"
+                        echo ' '
+                else
+                        ls -al $line | grep .netrc | while read -r netrc; do
+                                echo " $netrc"
+
+                                ## check 5th field ##
+                                if [ ${netrc:4:6} == "------" ]
+                                then
+                                        echo -e " ${GREEN} 5th-10th field of permission is '------' ${NC}"
+                                else
+                                        echo -e " ${RED} 5th-10th field of permission is not '------' ${NC}"
+                                fi
+
+                                echo ' '
+                        done
+                fi
+        done
+fi
+
+#################################### 7.15 ####################################
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}7.15 Check for Presence of User .rhosts Files${normal}"
+echo ' '
+
+intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+
+if [ -z "$intUserAcc" ]
+then
+        echo "There is no interactive user account."
+        echo ' '
+else
+        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+                echo "Checking user home directory $line"
+                rhostsfile="$(ls -al $line | grep .rhosts)"
+
+ if  [ -z "$rhostsfile" ]
+                then
+                        echo " There is no .rhosts file"
+                        echo ' '
+                else
+                        ls -al $line | grep .rhosts | while read -r rhosts; do
+                                for file in $rhosts
+                                do
+                                        if [[ $file = *".rhosts"* ]]
+                                        then
+                                                echo " Checking .rhosts file $file"
+                                                #check if file created user matches directory user
+                                                filecreateduser=$(stat -c %U $line/$file)
+                                                if [[ $filecreateduser = *"$line"* ]]
+                                                then
+                                                       echo -e "${GREEN} $file created user is the same user in the directory${NC}"
+
+ echo ' '
+                                                else
+                                                        echo -e "${RED} $file created user is not the same in the directory. This file should be deleted! ${NC}"
+
+ echo ' '
+                                                fi
+                                        fi
+                                done                    
+                        done
+                fi
+        done
+fi
+
+echo "------------------------------------------------------------------------------------------"
+echo ' '
+echo "${bold}End of verification.${normal}"
+echo ' '
+echo "8.1 Set Warning Banner for Standard Login Services"
+
+current=$(cat /etc/motd)
+
+standard="WARNING: UNAUTHORIZED USERS WILL BE PROSECUTED!"
+
+if [ "$current" == "$standard" ]; then
+        echo "Audit status: PASSED!"
+else
+        echo "Audit status: FAILED!"
+fi
+#########################################################################
+
+echo "8.2 Remove OS Information from Login Warning Banners"
+
+current1=$(egrep '(\\v|\\r|\\m|\\s)' /etc/issue)
+current2=$(egrep '(\\v|\\r|\\m|\\s)' /etc/motd)
+current3=$(egrep '(\\v|\\r|\\m|\\s)' /etc/issue.net)
+
+string1="\\v"
+string2="\\r"
+string3="\\m"
+string4="\\s"
+
+if [[ $current1 =~ $string1 || $current1 =~ $string2 || $current1 = ~$string3 || $current1 =~ $string4 ]]; then
+        echo "Audit status: FAILED! [OS Information found in /etc/issue]"
+else
+        echo "/etc/issue has no issues. Continuing with verification"
+fi
+
+if [[ $current2 =~ $string1 || $current2 =~ $string2 || $current2 = ~$string3 || $current2 =~ $string4 ]]; then
+        echo "Audit status: FAILED! [OS Information found in /etc/motd]"
+else
+        echo "/etc/motd has no issues. Continuing with verification"
+fi
+
+if [[ $current3 =~ $string1 || $current3 =~ $string2 || $current3 = ~$string3 || $current4 =~ $string4 ]]; then
+        echo "Audit status: FAILED! [OS Information found in /etc/issue.net]"
+else
+        echo "/etc/issue.net has no issues. Continuing with verification"
+fi
+

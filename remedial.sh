@@ -1787,3 +1787,356 @@ then
 		echo "/var/log/cron" >> /etc/logrotate.d/syslog
 	fi
 fi
+---------------------------------------------------------------------------------------------------------------
+# !/bin/bash
+echo "Current Remediation Process: 7.1 Set Password Expiration Days"
+
+current=$(cat /etc/login.defs | grep "^PASS_MAX_DAYS" | awk '{ print $2 }')
+standard=90 #change this value according to the enterprise's required standard
+if [ ! $current = $standard ]; then
+  sed -i "s/^PASS_MAX_DAYS.*99999/PASS_MAX_DAYS $standard/" /etc/login.defs | grep "^PASS_MAX_DAYS.*$standard"
+fi
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.2 Set Password Change Minimum Number of Days"
+
+current=$(cat /etc/login.defs | grep "^PASS_MIN_DAYS" | awk '{ print $2 }')
+standard=7 #change this value according to the enterprise's required standard
+if [ ! $current = $standard ]; then
+	sed -i "s/^PASS_MIN_DAYS.*0/PASS_MIN_DAYS $standard/" /etc/login.defs | grep "^PASS_MIN_DAYS.*$standard"
+fi
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.3 Set Password Expiring Warning Days"
+
+current=$(cat /etc/login.defs | grep "^PASS_WARN_AGE" | awk '{ print $2 }')
+standard=7 #change this value according to the enterprise's required standard
+if [ ! $current = $standard ]; then
+	sed -i "s/^PASS_WARN_AGE.*0/PASS_WARN_AGE $standard/" /etc/login.defs | grep "^PASS_WARN_AGE.*$standard"
+fi
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.4 Disable System Accounts"
+
+for user in `awk -F: '($3 < 1000) { print $1 }' /etc/passwd` ; do 
+	if [ $user != "root" ]; then 
+		usermod -L $user &> /dev/null 
+		if [ $user != "sync" ] && [ $user != "shutdown" ] && [ $user != "halt" ]; then
+			usermod -s /sbin/nologin $user &> /dev/null
+			fi 
+		fi 
+	done
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.5 Set Default Group for root Account"
+ 
+current=$(grep "^root:" /etc/passwd | cut -f4 -d:)
+  
+if [ "$current" == 0 ]; then
+    echo "Default Group for rooot Account is already set correctly"
+    exit 0
+else
+    usermod -g 0 root
+    echo "Default Group for root Account is modified successfully"
+fi
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.6 Set Default umask for Users"
+
+remedy=$(egrep -h "\s+umask ([0-7]{3})" /etc/bashrc /etc/profile | awk '{ print $2 }')
+
+if [ "$remedy" != 077 ];then 
+	sed -i 's/022/077/g' /etc/profile /etc/bashrc
+	sed -i 's/002/077/g' /etc/profile /etc/bashrc
+fi
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.7 Lock Inactive User Accounts"
+
+useradd -D -f 30
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.8 Ensure Password Fields are Not Empty"
+
+current=$(cat /etc/shadow | awk -F: '($2 == ""){print $1}')
+
+for line in ${current}
+do
+	/usr/bin/passwd -l ${line}	
+done
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.9 Verify No Legacy "+" Entries Exist in /etc/passwd,/etc/shadow,/etc/group"
+
+passwd=$(grep '^+:' /etc/passwd)
+shadow=$(grep '^+:' /etc/shadow)
+group=$(grep '^+:' /etc/group)
+
+for accounts in $passwd
+do
+  	if [ "$accounts" != "" ];then
+                userdel --force $accounts
+                groupdel --force $accounts
+fi
+done
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 7.10 Verify No UID 0 Accounts Exist Other Than Root"
+
+remedy=$(/bin/cat /etc/passwd | /bin/awk -F: '($3 == 0) { print $1 }')
+
+for accounts in $remedy
+do
+	if [ "$accounts" != "root" ];then
+		userdel --force $accounts
+		groupdel --force $accounts
+fi
+done
+
+---------------------------------------------------------------------------------------------------------------
+
+
+####################################### 7.12 ######################################
+
+x=0
+while [ $x = 0 ]
+do
+        clear
+        echo "Do you want to set all user home directory permission as default? (y/n) - Press 'q' to quit."
+        read answer
+        case "$answer" in
+                y)
+                echo "You said - yes"
+                intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+                if [ -z "$intUserAcc" ]
+                then
+                        echo "There is no interactive user account."
+                        echo ' '
+                else
+                        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+                                chmod g-x $line
+                                chmod o-rwx $line
+                                echo "Directory $line permission is set default."
+                        done
+                fi
+		 x=1
+                ;;
+                n)
+                echo "You said -No"
+                x=1
+                ;;
+                q)
+                x=1
+                echo "Exiting..."
+                sleep 2
+                ;;
+                *)
+                clear
+                echo "This is not an option"
+                sleep 3
+                ;;
+        esac
+done
+
+####################################### 7.13 #######################################
+
+x=0
+while [ $x = 0 ]
+do
+        clear
+        echo "Do you want to set all user hidden file permission as default? (y/n) - Press 'q' to quit."
+        read answer
+        case "$answer" in
+                y)
+                echo "You said - yes"
+                intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+                if [ -z "$intUserAcc" ]
+                then
+                        echo "There is no interactive user account."
+                        echo ' '
+                else
+                        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+                                hiddenfiles="$(echo .*)"
+
+                                if [ -z "$hiddenfiles" ]
+                                then
+                                        echo "There is no hidden files."
+                                else
+					for file in ${hiddenfiles[*]}
+                                        do
+                                                chmod g-w $file
+                                                chmod o-w $file
+                                                echo "User directory $line hidden file $file permission is set as default"
+                                        done
+                                fi
+                        done
+                fi
+                x=1
+                ;;
+                n)
+                echo "You said -No"
+                x=1
+                ;;
+                q)
+                x=1
+                echo "Exiting..."
+                sleep 2
+                ;;
+  *)
+                clear
+                echo "This is not an option"
+                sleep 3
+                ;;
+        esac
+done
+
+####################################### 7.14 #######################################
+
+x=0
+while [ $x = 0 ]
+do
+        clear
+        echo "Do you want to set all user .netrc file  permission as default? (y/n) - Press 'q' to quit."
+        read answer
+        case "$answer" in
+                y)
+                echo "You said - yes"
+                intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+                if [ -z "$intUserAcc" ]
+                then
+                        echo "There is no interactive user account."
+                        echo ' '
+                else
+                        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+				  permission="$(ls -al $line | grep .netrc)"
+                                if [ -z "$permission" ]
+                                then
+                                        echo "There is no .netrc file in user directory $line"
+                                        echo ' '
+                                else
+                                        ls -al $line | grep .netrc | while read -r netrc; do
+                                                for file in $netrc
+                                                do
+
+ cd $line
+
+ if [[ $file = *".netrc"* ]]
+
+ then
+
+         chmod go-rwx $file
+
+         echo "User directory $line .netrc file $file permission is set as default"
+
+ fi
+                                                done
+                                        done
+                                fi
+                        done
+                fi
+                x=1
+                ;;
+		 n)
+                echo "You said -No"
+                x=1
+                ;;
+                q)
+                x=1
+                echo "Exiting..."
+                sleep 2
+                ;;
+                *)
+                clear
+                echo "This is not an option"
+                sleep 3
+                ;;
+        esac
+done
+
+
+####################################### 7.15 #######################################
+
+intUserAcc="$(/bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }')"
+if [ -z "$intUserAcc" ]
+then
+        #echo "There is no interactive user account."
+        echo ''
+else
+        /bin/cat /etc/passwd | /bin/egrep -v '(root|halt|sync|shutdown)' | /bin/awk -F: '($7 != "/sbin/nologin"){ print $6 }' | while read -r line; do
+                #echo "Checking user home directory $line"
+		rhostsfile="$(ls -al $line | grep .rhosts)"
+                if  [ -z "$rhostsfile" ]
+                then
+                        #echo " There is no .rhosts file"
+                        echo ''
+                else
+                        ls -al $line | grep .rhosts | while read -r rhosts; do
+                                for file in $rhosts
+                                do
+                                        if [[ $file = *".rhosts"* ]]
+                                        then
+                                                #echo " Checking .rhosts file $file"
+                                                #check if file created user matches directory user
+                                                filecreateduser=$(stat -c %U $line/$file)
+                                                if [[ $filecreateduser = *"$line"* ]]
+                                                then
+#echo -e "${GREEN} $file created user is the same user in the directory${NC}"
+
+ echo ''
+                                                else
+
+ #echo -e "${RED} $file created user is not the same in the directory. This file should be deleted! ${NC}"
+
+ echo ''
+                                                        cd $line
+
+ rm $file
+                                                fi
+                                        fi
+                                done
+                        done
+                fi
+        done
+fi
+
+
+echo "Current Remediation Process: 8.1 Set Warning Banner for Standard Login Services"
+
+echo "WARNING: UNAUTHORIZED USERS WILL BE PROSECUTED!" > '/etc/motd'
+
+---------------------------------------------------------------------------------------------------------------
+
+echo "Current Remediation Process: 8.2 Remove OS Information from Login Warning Banners"
+
+current1=$(egrep '(\\v|\\r|\\m|\\s)' /etc/issue)
+current2=$(egrep '(\\v|\\r|\\m|\\s)' /etc/motd)
+current3=$(egrep  '(\\v|\\r|\\m|\\s)' /etc/issue.net)
+
+string1="\\v"
+string2="\\r"
+string3="\\m"
+string4="\\s"
+
+if [[ $current1 =~ $string1 || $current1 =~ $string2 || $current1 =~ $string3 || $current1 =~ $string4 ]]; then
+        sed -i.bak '/\\v\|\\r\|\\m\|\\s/d' /etc/issue
+fi
+
+if [[ $current2 =~ $string1 || $current2 =~ $string2 || $current2 =~ $string3 || $current2 =~ $string4 ]]; then
+        sed -i.bak '/\\v\|\\r\|\\m\|\\s/d' /etc/motd
+fi
+
+
+if [[ $current3 =~ $string1 || $current3 =~ $string2 || $current3 =~ $string3 || $current4 =~ $string4 ]]; then
+        sed -i.bak '/\\v\|\\r\|\\m\|\\s/d' /etc/issue.net
+fi
+
+
