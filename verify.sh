@@ -1758,3 +1758,242 @@ fi
 
 
 
+#!/bin/bash
+
+#Check whether Anacron Daemon is enabled or not
+if rpm -q cronie-anacron
+then
+	echo "Anacron Daemon has been installed."
+else
+	echo "Please ensure that you have Anacron Daemon has been installed."
+fi
+
+#Check if Crond Daemon is enabled
+checkCronDaemon=$(systemctl is-enabled crond)
+if [[ $checkCronDaemon = "enabled" ]]
+then
+	echo "Crond Daemon has been enabled."
+else
+	echo "Please ensure that you have enabled crond Daemon."
+fi
+
+#Check if the correct permissions is configured for /etc/anacrontab
+anacrontabFile="/etc/anacrontab"
+if [ -e "$anacrontabFile" ]
+then
+	echo "The Anacrontab file ($anacrontabFile) exists."
+	
+	anacrontabPerm=$(stat -c "%a" "$anacrontabFile")
+	anacrontabRegex="^[0-7]00$"
+	if [[ $anacrontabPerm =~ $anacrontabRegex ]]
+	then
+		echo "Permissions has been set correctly for $anacrontabFile."
+	else
+		echo "Ensure that the permissions has been set correctly for $anacrontabFile."
+	fi
+
+	anacrontabOwn=$(stat -c "%U" "$anacrontabFile")
+	if [ $anacrontabOwn = "root" ]
+	then
+		echo "Owner of the file ($anacrontabFile): $anacrontabOwn"
+	else
+		echo "Owner of the file ($anacrontabFile): $anacrontabOwn"
+	fi
+
+	anacrontabGrp=$(stat -c "%G" "$anacrontabFile")
+	if [ $anacrontabGrp = "root" ]
+	then
+		echo "Group owner of the file ($anacrontabFile): $anacrontabGrp"
+	else
+		echo "Group owner of the file ($anacrontabFile): $anacrontabGrp. Please ensure that the group owner is root instead."
+	fi
+else
+	echo "The Anacrontab file does not exist. Please ensure that you have Anacron Daemon installed."
+fi
+
+#Check if the correct permissions has been configured for /etc/crontab
+crontabFile="/etc/crontab"
+if [ -e "$crontabFile" ]
+then
+	crontabPerm=$(stat -c "%a" "$crontabFile")
+	crontabRegex="^[0-7]00$"
+	if [[ $crontabPerm =~ $crontabRegex ]]
+	then
+		echo "Permissions has been set correctly for $crontabFile."
+	else
+		echo "Ensure that the permissions has been set correctly for $crontabFile."
+	fi
+
+	crontabOwn=$(stat -c "%U" "$crontabFile")
+	if [ $crontabOwn = "root" ]
+	then
+		echo "Owner of the file ($crontabFile): $crontabOwn"
+	else
+		echo "Owner of the file ($crontabFile): $crontabOwn. Please ensure that the owner of the file is root instead."
+	fi
+
+	crontabGrp=$(stat -c "%G" "$crontabFile")
+	if [ $crontabGrp = "root" ]
+	then
+		echo "Group owner of the file ($crontabFile): $crontabGrp"
+	else
+		echo "Group owner of the file ($crontabFIle): $crontabGrp. Please ensure that the group owner of the file is root instead."
+	fi
+
+else
+	echo "The crontab file ($crontabFile) does not exist."
+fi
+
+#Check if the correct permissions has been set for /etc/cron.XXXX
+checkCronHDWMPerm(){
+	local cronHDWMType=$1
+	local cronHDWMFile="/etc/cron.$cronHDWMType"
+
+	if [ -e "$cronHDWMFile" ]
+	then
+		local cronHDWMPerm=$(stat -c "%a" "$cronHDWMFile")
+		local cronHDWMRegex="^[0-7]00$"
+		if [[ $cronHDWMPerm =~ $cronHDWMRegex ]]
+		then
+			echo "Permissions has been set correctly for $cronHDWMFile."
+		else
+			echo "Ensure that the permissions has been set correctly for $cronHDWMFile."
+		fi
+
+		local cronHDWMOwn="$(stat -c "%U" "$cronHDWMFile")"
+		if [ $cronHDWMOwn = "root" ]
+		then
+			echo "Owner of the file ($cronHDWMFile): $cronHDWMOwn"
+		else
+			echo "Owner of the file ($cronHDWMFile): $cronHDWMOwn. Please ensure that the owner of the file is root instead."
+		fi
+
+		local cronHDWMGrp="$(stat -c "%G" "$cronHDWMFile")"
+		if [ $cronHDWMGrp = "root" ]
+		then
+			echo "Group Owner of the file ($cronHDWMFile): $cronHDWMGrp"
+		else
+			echo "Group Owner of the file ($cronHDWMFile): $cronHDWMGrp. Please ensure that the group owner of the file is root instead."
+		fi
+	else
+		echo "File ($cronHDWMFile) does not exist."
+	fi	
+}
+
+checkCronHDWMPerm "hourly"
+checkCronHDWMPerm "daily"
+checkCronHDWMPerm "weekly"
+checkCronHDWMPerm "monthly"
+
+#Check if the permissions has been set correctly for /etc/cron.d
+cronDFile="/etc/cron.d"
+if [ -e "$cronDFile" ]
+then
+	echo "The cron.d file ($cronDFile) exists."
+	cronDPerm=$(stat -c "%a" "$cronDFile")
+	cronDRegex="^[0-7]00$"
+	if [[ $cronDPerm =~ $cronDRegex ]]
+	then
+		echo "Permissions has been set correctly for $cronDFile."
+	else
+		echo "Ensure that the permissions has been set correctly for $cronDFile."
+	fi
+
+	cronDOwn=$(stat -c "%U" "$cronDFile")
+	if [ $cronDOwn = "root" ]
+	then
+		echo "Owner of the file ($cronDFile): $cronDOwn"
+	else
+		echo "Owner of the file ($cronDFile): $cronDOwn. Please ensure that the owner of the file is root instead."
+	fi
+
+	cronDGrp=$(stat -c "%G" "$cronDFile")
+	if [ $cronDGrp = "root" ]
+	then
+		echo "Group owner of the file ($cronDFile): $cronDGrp"
+	else
+		echo "Group owner of the file ($cronDFile): $cronDGrp. Please ensure that the group owner of the file is root instead."
+	fi
+else
+	echo "The cron.d file ($cronDFile) does not exist."
+fi
+
+#Check if /etc/at.deny is deleted and that a /etc/at.allow exists and check the permissions of the /etc/at.allow file
+atDenyFile="/etc/at.deny"
+if [ -e "$atDenyFile" ]
+then
+	echo "Please ensure that the file $atDenyFile is deleted."
+else
+	echo "$atDenyFile is deleted as recommended."
+fi
+
+atAllowFile="/etc/at.allow"
+if [ -e "$atAllowFile" ]
+then
+        atAllowPerm=$(stat -c "%a" "$atAllowFile")
+        atAllowRegex="^[0-7]00$"
+        if [[ $atAllowPerm =~ $atAllowRegex ]]
+        then
+            	echo "Permissions has been set correctly for $atAllowFile."
+        else
+            	echo "Ensure that the permissions has been set correctly for $atAllowFile."
+        fi
+
+	atAllowOwn=$(stat -c "%U" "$atAllowFile")
+        if [ $atAllowOwn = "root" ]
+        then
+            	echo "Owner of the file ($atAllowFile): $atAllowOwn"
+        else
+            	echo "Owner of the file ($atAllowFile): $atAllowOwn. Please ensure that the owner of the file is root instead."
+        fi
+
+	atAllowGrp=$(stat -c "%G" "$atAllowFile")
+	if [ $atAllowGrp = "root" ]
+	then
+		echo "Group owner of the file ($atAllowFile): $atAllowGrp"
+	else
+		echo "Group owner of the file ($atAllowFile): $atAllowGrp. Please ensure that the group owner of the file is root instead."
+	fi
+else
+	echo "Please ensure that a $atAllowFile is created for security purposes."
+fi
+
+#Check if /etc/cron.deny is deleted and that a /etc/cron.allow exists and check the permissions of the /etc/cron.allow file
+cronDenyFile="/etc/cron.deny"
+if [ -e "$cronDenyFile" ]
+then
+        echo "Please ensure that the file $cronDenyFile is deleted."
+else
+	echo "$cronDenyFile is deleted as recommended."
+fi
+
+cronAllowFile="/etc/cron.allow"
+if [ -e "$cronAllowFile" ]
+then
+    	cronAllowPerm=$(stat -c "%a" "$cronAllowFile")
+       	cronAllowRegex="^[0-7]00$"
+        if [[ $cronAllowPerm =~ $cronAllowRegex ]]
+        then
+               	echo "Permissions has been set correctly for $cronAllowFile."
+        else
+               	echo "Ensure that the permissions has been set correctly for $cronAllowFile."
+       	fi
+
+       	cronAllowOwn=$(stat -c "%U" "$cronAllowFile")
+        if [ $cronAllowOwn = "root" ]
+        then
+                echo "Owner of the file ($cronAllowFile): $cronAllowOwn"
+        else
+               	echo "Owner of the file ($atAllowFile): $cronAllowOwn. Please ensure that the owner of the file is root instead."
+    	fi
+
+    	cronAllowGrp=$(stat -c "%G" "$cronAllowFile")
+       	if [ $cronAllowGrp = "root" ]
+        then
+            	echo "Group owner of the file ($cronAllowFile): $cronAllowGrp"
+        else
+            	echo "Group owner of the file ($cronAllowFile): $cronAllowGrp. Please ensure that the group owner of the file is root instead."
+        fi
+else
+    	echo "Please ensure that a $cronAllowFile is created for security purposes."
+fi
