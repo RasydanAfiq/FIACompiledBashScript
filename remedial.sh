@@ -2240,6 +2240,21 @@ done
 
 ####################################### 7.19 ######################################
 
+#7.23 Check for presence of user .forward files
+echo ""
+
+echo "7.23 Check for presence of user .forward files."
+
+for dir in `/bin/cat /etc/passwd | /bin/awk -F: '{ print $6 }'`; do
+if [ ! -h "$dir/.forward" -a -f "$dir/.forward" ]; then
+	chmod u=rw- $dir/.forward
+	chmod g=--- $dir/.forward
+	chmod o=--- $dir/.forward
+	echo "Remediation performed for presence of $dir/.forward file."
+	echo "$dir/.forward can only be read and written by the owner only now."
+fi
+done
+
 echo "Current Remediation Process: 8.1 Set Warning Banner for Standard Login Services"
 
 echo "WARNING: UNAUTHORIZED USERS WILL BE PROSECUTED!" > '/etc/motd'
@@ -2691,17 +2706,3 @@ else
 	fi
 fi
 
-#7.23 Check for presence of user .forward files
-echo ""
-
-echo "7.23 Check for presence of user .forward files."
-
-for dir in `/bin/cat /etc/passwd | /bin/awk -F: '{ print $6 }'`; do
-if [ ! -h "$dir/.forward" -a -f "$dir/.forward" ]; then
-	chmod u=rw- $dir/.forward
-	chmod g=--- $dir/.forward
-	chmod o=--- $dir/.forward
-	echo "Remediation performed for presence of $dir/.forward file."
-	echo "$dir/.forward can only be read and written by the owner only now."
-fi
-done

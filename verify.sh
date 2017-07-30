@@ -1714,6 +1714,86 @@ echo ' '
 	fi
 done
 
+#!/bin/bash
+
+#7.20 - Check that reserved UIDs are assigned to only system accounts
+
+echo "7.20 Check that reserved UIDs are assigned to only system accounts."
+
+systemaccount=(root bin daemon adm lp sync shutdown halt mail news uucp operator games gopher ftp nobody nscd vcsa rpc mailnull smmsp pcap ntp dbus avahi sshd rpcuser nfsnobody haldaemon avahi-autoipd distcache apache oprofile webalizer dovecot squid named xfs gdm sabayon usbmuxd rtkit abrt saslauth pulse postfix tcpdump systemd-network tss radvd [51]=qemu)
+
+nameCounter=0
+systemNameFile="/etc/passwd"
+while IFS=: read -r f1 f2 f3 f4 f5 f6 f7
+do
+	if [[ $f3 -lt 500 ]]
+	then
+		for i in ${systemaccount[*]}
+		do
+			if [[ $f1 == $i ]]
+			then
+				nameCounter=$((nameCounter+1))
+			else
+				nameCounter=$((nameCounter+0))
+			fi
+		done
+
+		if [[ $nameCounter < 1 ]]
+		then
+			echo "User '$f1' is not a system account but has a reserved UID of $f3."
+		fi
+		nameCounter=0
+	fi
+done <"$systemNameFile"
+
+
+
+#7.21 - Duplicate User Names
+
+echo ""
+
+echo "7.21 Check for duplicate user names."
+
+cat /etc/passwd | cut -f1 -d":" | /bin/sort -n | /usr/bin/uniq -c |
+while read x ; do
+[ -z "${x}" ] && break
+set - $x
+if [ $1 -gt 1 ]; then
+uids=`/bin/gawk -F: '($1 == n) { print $3 }' n=$2 /etc/passwd | xargs`
+echo "There are $1 duplicate user name titled '$2' found in the system and its respective UIDs are ${uids}."
+fi
+done
+
+
+#7.22 - Duplicate Group Names
+
+echo ""
+
+echo "7.22 Check for duplicate group names."
+
+cat /etc/group | cut -f1 -d":" | /bin/sort -n | /usr/bin/uniq -c | 
+while read x ; do
+[ -z "${x}" ] && break
+set - $x
+if [ $1 -gt 1 ]; then
+gids=`/bin/gawk -F: '($1 == n) { print $3 }' n=$2 /etc/group | xargs`
+echo "There are $1 duplicate group name titled '$2' found in the system and its respective UIDs are ${gids}."
+fi
+done
+
+
+#7.23 - Check for presence of user .forward files
+
+echo ""
+
+echo "7.23 Check for presence of user ./forward files."
+
+for dir in `/bin/cat /etc/passwd | /bin/awk -F: '{ print $6 }'`; do
+if [ ! -h "$dir/.forward" -a -f "$dir/.forward" ]; then 
+echo ".forward file titled '$dir/.forward' found in the system."
+fi
+done
+
 echo "8.1 Set Warning Banner for Standard Login Services"
 
 current=$(cat /etc/motd)
@@ -1998,82 +2078,3 @@ else
     	echo "Please ensure that a $cronAllowFile is created for security purposes."
 fi
 
-#!/bin/bash
-
-#7.20 - Check that reserved UIDs are assigned to only system accounts
-
-echo "7.20 Check that reserved UIDs are assigned to only system accounts."
-
-systemaccount=(root bin daemon adm lp sync shutdown halt mail news uucp operator games gopher ftp nobody nscd vcsa rpc mailnull smmsp pcap ntp dbus avahi sshd rpcuser nfsnobody haldaemon avahi-autoipd distcache apache oprofile webalizer dovecot squid named xfs gdm sabayon usbmuxd rtkit abrt saslauth pulse postfix tcpdump systemd-network tss radvd [51]=qemu)
-
-nameCounter=0
-systemNameFile="/etc/passwd"
-while IFS=: read -r f1 f2 f3 f4 f5 f6 f7
-do
-	if [[ $f3 -lt 500 ]]
-	then
-		for i in ${systemaccount[*]}
-		do
-			if [[ $f1 == $i ]]
-			then
-				nameCounter=$((nameCounter+1))
-			else
-				nameCounter=$((nameCounter+0))
-			fi
-		done
-
-		if [[ $nameCounter < 1 ]]
-		then
-			echo "User '$f1' is not a system account but has a reserved UID of $f3."
-		fi
-		nameCounter=0
-	fi
-done <"$systemNameFile"
-
-
-
-#7.21 - Duplicate User Names
-
-echo ""
-
-echo "7.21 Check for duplicate user names."
-
-cat /etc/passwd | cut -f1 -d":" | /bin/sort -n | /usr/bin/uniq -c |
-while read x ; do
-[ -z "${x}" ] && break
-set - $x
-if [ $1 -gt 1 ]; then
-uids=`/bin/gawk -F: '($1 == n) { print $3 }' n=$2 /etc/passwd | xargs`
-echo "There are $1 duplicate user name titled '$2' found in the system and its respective UIDs are ${uids}."
-fi
-done
-
-
-#7.22 - Duplicate Group Names
-
-echo ""
-
-echo "7.22 Check for duplicate group names."
-
-cat /etc/group | cut -f1 -d":" | /bin/sort -n | /usr/bin/uniq -c | 
-while read x ; do
-[ -z "${x}" ] && break
-set - $x
-if [ $1 -gt 1 ]; then
-gids=`/bin/gawk -F: '($1 == n) { print $3 }' n=$2 /etc/group | xargs`
-echo "There are $1 duplicate group name titled '$2' found in the system and its respective UIDs are ${gids}."
-fi
-done
-
-
-#7.23 - Check for presence of user .forward files
-
-echo ""
-
-echo "7.23 Check for presence of user ./forward files."
-
-for dir in `/bin/cat /etc/passwd | /bin/awk -F: '{ print $6 }'`; do
-if [ ! -h "$dir/.forward" -a -f "$dir/.forward" ]; then 
-echo ".forward file titled '$dir/.forward' found in the system."
-fi
-done
