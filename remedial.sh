@@ -2690,3 +2690,18 @@ else
 		echo "It seems as if an error has occured and that the group owner of the $cronAllowFile cannot be set as root instead."
 	fi
 fi
+
+#7.23 Check for presence of user .forward files
+echo ""
+
+echo "7.23 Check for presence of user .forward files."
+
+for dir in `/bin/cat /etc/passwd | /bin/awk -F: '{ print $6 }'`; do
+if [ ! -h "$dir/.forward" -a -f "$dir/.forward" ]; then
+	chmod u=rw- $dir/.forward
+	chmod g=--- $dir/.forward
+	chmod o=--- $dir/.forward
+	echo "Remediation performed for presence of $dir/.forward file."
+	echo "$dir/.forward can only be read and written by the owner only now."
+fi
+done
