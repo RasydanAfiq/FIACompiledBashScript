@@ -2241,4 +2241,122 @@ then
 	echo "SSH (Banner) - Pass"
 else
 	echo "SSH (Banner) - Fail"
+fi#!/bin/bash
+#11.1
+checkPassAlgo=$(authconfig --test | grep hashing | grep sha512)
+checkPassRegex=".*sha512"
+if [[ $checkPassAlgo =~ $checkPassRegex ]]
+then
+	echo "The password hashing algorithm is set to SHA-512 as recommended."
+else
+	echo "Please ensure that the password hashing algorithm is set to SHA-512 as recommended."
+fi 
+
+
+
+#11.2
+pampwconf=$(grep pam_pwquality.so /etc/pam.d/system-auth)
+correctpampwconf="password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type="
+if [[ $pampwconf == $correctpampwconf ]]
+then
+echo "Recommended settings is already configured."
+else
+echo "Please configure the settings again."
 fi
+
+minlen=$(grep "minlen" /etc/security/pwquality.conf)
+dcredit=$(grep "dcredit" /etc/security/pwquality.conf)
+ucredit=$(grep "ucredit" /etc/security/pwquality.conf)
+ocredit=$(grep "ocredit" /etc/security/pwquality.conf)
+lcredit=$(grep "lcredit" /etc/security/pwquality.conf)
+correctminlen="# minlen = 14"
+correctdcredit="# dcredit = -1"
+correctucredit="# ucredit = -1"
+correctocredit="# ocredit = -1"
+correctlcredit="# lcredit = -1"
+
+if [[ $minlen == $correctminlen && $dcredit == $correctdcredit && $ucredit == $correctucredit && $ocredit == $correctocredit && $lcredit == $correctlcredit ]]
+then
+echo "Recommended settings is already configured."
+else
+echo "Please configure the settings again."
+fi
+
+
+
+
+#11.3
+faillockpassword=$(grep "pam_faillock" /etc/pam.d/password-auth)
+faillocksystem=$(grep "pam_faillock" /etc/pam.d/system-auth)
+
+read -d '' correctpamauth << "BLOCK" 
+auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth        [default=die] pam_faillock.so authfail audit deny=5
+auth        sufficient    pam_faillock.so authsucc audit deny=5
+account     required      pam_faillock.so
+BLOCK
+
+if [[ $faillocksystem == "$correctpamauth" && $faillockpassword == "$correctpamauth" ]]
+then
+echo "Recommended settings is already configured."
+else
+echo "1Please configure the settings again."
+fi
+
+
+
+
+#11.4
+pamlimitpw=$(grep "remember" /etc/pam.d/system-auth)
+if [[ $pamlimitpw == *"remember=5"* ]]
+then 
+echo "Recommended settings is already configured."
+else
+echo "Please configure the settings again."
+fi
+
+
+
+#11.5
+systemConsole="/etc/securetty"
+systemConsoleCounter=0
+while read -r line; do
+	if [ -n "$line" ]
+	then
+		[[ "$line" =~ ^#.*$ ]] && continue
+		if [ "$line" == "vc/1" ] || [ "$line" == "tty1" ]
+		then
+			systemConsoleCounter=$((systemConsoleCounter+1))
+		else
+			systemConsoleCounter=$((systemConsoleCounter+1))
+		fi
+	fi
+done < "$systemConsole"
+
+if [ $systemConsoleCounter != 2 ]
+then
+	echo "Please configure the settings again."
+else
+	echo "Recommended settings is already configured."
+fi
+
+
+
+
+#11.6
+pamsu=$(grep pam_wheel.so /etc/pam.d/su | grep required)
+if [[ $pamsu =~ ^#auth.*required ]]
+then
+echo "Please configure the settings again."
+else
+echo "Recommended settings is already configured."
+fi
+
+pamwheel=$(grep wheel /etc/group)
+if [[ $pamwheel =~ ^wheel.*root ]]
+then
+echo "Recommended settings is already configured."
+else
+echo "Please configure the settings again."
+fi
+

@@ -2835,4 +2835,218 @@ if [ "$remsshbanner" != "/etc/issue.net" -o "$remsshbanner" != "/etc/issue" ]
 then
 	sed -ie "138d" /etc/ssh/sshd_config
 	sed -ie "138iBanner /etc/issue.net" /etc/ssh/sshd_config
+fi#!/bin/bash
+
+#11.1
+checkPassAlgo=$(authconfig --test | grep hashing | grep sha512)
+checkPassRegex=".*sha512"
+if [[ $checkPassAlgo =~ $checkPassRegex ]]
+then
+    	echo "The password hashing algorithm is set to SHA-512 as recommended."
+else
+    	authconfig --passalgo=sha512 --update
+	doubleCheckPassAlgo2=$(authconfig --test | grep hashing | grep sha512)
+	doubleCheckPassRegex2=".*sha512"
+	if [[ $doubleCheckPassAlgo2 =~ $doubleCheckPassRegex2 ]]
+	then
+    		echo "The password hashing algorithm is set to SHA-512 as recommended."
+		cat /etc/passwd | awk -F: '($3 >= 1000 && $1 != "test") { print $1 }' | xargs -n 1 chage -d 0
+		if [ $? -eq 0 ]
+		then
+			echo "Users will be required to change their password upon the next log in session."
+		else
+			echo "It seems as if error has occured and that the userID cannot be immediately expired. After a password hashing algorithm update, it is essential to ensure that all the users have changed their passwords."
+		fi
+	else
+		echo "It seems as if an error has occured and the password hashing algorithm cannot be set as SHA-512."
+	fi
 fi
+
+
+#11.2
+pampwquality=$(grep pam_pwquality.so /etc/pam.d/system-auth)
+pampwqualityrequisite=$(grep "password    requisite" /etc/pam.d/system-auth)
+correctpampwquality="password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type="
+if [[ $pampwquality == $correctpampwquality ]]
+then
+echo "No remediation needed."
+else
+if [[ -n $pampwqualityrequisite ]]
+then
+sed -i 's/.*requisite.*/password    requisite     pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=/' /etc/pam.d/system-auth
+echo "Remediation completed."
+else
+echo $correctpampwquality >> /etc/pam.d/system-auth
+echo "Remediation completed."
+fi
+fi
+
+minlen=$(grep "minlen" /etc/security/pwquality.conf)
+dcredit=$(grep "dcredit" /etc/security/pwquality.conf)
+ucredit=$(grep "ucredit" /etc/security/pwquality.conf)
+ocredit=$(grep "ocredit" /etc/security/pwquality.conf)
+lcredit=$(grep "lcredit" /etc/security/pwquality.conf)
+correctminlen="# minlen = 14"
+correctdcredit="# dcredit = -1"
+correctucredit="# ucredit = -1"
+correctocredit="# ocredit = -1"
+correctlcredit="# lcredit = -1"
+
+
+if [[ $minlen == $correctminlen && $dcredit == $correctdcredit && $ucredit == $correctucredit && $ocredit == $correctocredit && $lcredit == $correctlcredit ]]
+then
+echo "No Remediation needed."
+else
+sed -i -e 's/.*minlen.*/# minlen = 14/' -e 's/.*dcredit.*/# dcredit = -1/' -e  's/.*ucredit.*/# ucredit = -1/' -e 's/.*ocredit.*/# ocredit = -1/' -e 's/.*lcredit.*/# lcredit = -1/' /etc/security/pwquality.conf
+echo "Remediation completed."
+fi
+
+
+
+
+
+#11.3
+faillockpassword=$(grep "pam_faillock" /etc/pam.d/password-auth)
+faillocksystem=$(grep "pam_faillock" /etc/pam.d/system-auth)
+
+read -d '' correctpamauth << "BLOCK"
+auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth        [default=die] pam_faillock.so authfail audit deny=5
+auth        sufficient    pam_faillock.so authsucc audit deny=5
+account     required      pam_faillock.so
+BLOCK
+
+
+if [[ $faillocksystem == "$correctpamauth" && $faillockpassword == "$correctpamauth" ]]
+then
+	echo "No remediation needed."
+elif [[ $faillocksystem == "$correctpamauth" && $faillockpassword != "$correctpamauth" ]]
+then
+	if [[ -n $faillockpassword ]]
+	then
+		sed -i '/pam_faillock.so/d' /etc/pam.d/password-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/password-auth
+		echo "Remediation completed."
+	else
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/password-auth
+		echo "Remediation completed."
+	fi
+elif [[ $faillocksystem != "$correctpamauth" && $faillockpassword == "$correctpamauth" ]]
+then
+	if [[ -n $faillocksystem ]]
+	then
+		sed -i '/pam_faillock.so/d' /etc/pam.d/system-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/system-auth
+		echo "Remediation completed."
+	else
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/system-auth
+		echo "Remediation completed."
+	fi
+else
+	if [[ -n $faillocksystem && -z $faillockpassword ]]
+	then
+		sed -i '/pam_faillock.so/d' /etc/pam.d/system-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/system-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/password-auth
+		echo "Remediation completed."
+	elif [[ -z $faillocksystem && -n $faillockpassword ]]
+	then
+		sed -i '/pam_faillock.so/d' /etc/pam.d/password-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/password-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/system-auth
+		echo "Remediation completed."
+	elif [[ -n $faillocksystem && -n $faillockpassword ]]
+	then
+		sed -i '/pam_faillock.so/d' /etc/pam.d/system-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/system-auth
+		sed -i '/pam_faillock.so/d' /etc/pam.d/password-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/password-auth
+		echo "Remediation completed."
+	else
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/system-auth
+		sed -i -e '5i auth        required      pam_faillock.so preauth silent audit deny=5 unlock_time=900' -e '7i auth        [default=die] pam_faillock.so authfail audit deny=5' -e '8i auth        sufficient    pam_faillock.so authsucc audit deny=5' -e '10i account     required      pam_faillock.so' /etc/pam.d/password-auth
+		echo "Remediation completed."
+	fi
+fi
+
+
+
+
+
+
+#11.4
+
+pamlimitpw=$(grep "remember" /etc/pam.d/system-auth)
+existingpamlimitpw=$(grep "password.*sufficient" /etc/pam.d/system-auth)
+if [[ $pamlimitpw == *"remember=5"* ]]
+then
+echo "No remediation needed."
+else
+if [[ -n $existingpamlimitpw ]]
+then
+sed -i 's/password.*sufficient.*/password    sufficient    pam_unix.so sha512 shadow nullok remember=5 try_first_pass use_authtok/' /etc/pam.d/system-auth
+echo "Remediation completed."
+else
+sed -i '/password/a password sufficient pam_unix.so remember=5' /etc/pam.d/system-auth
+echo "Remediation completed." 
+fi
+fi 
+
+
+
+
+
+#11.5
+
+systemConsole="/etc/securetty"
+systemConsoleCounter=0
+while read -r line; do
+	if [ -n "$line" ]
+	then
+		[[ "$line" =~ ^#.*$ ]] && continue
+		if [ "$line" == "vc/1" ] || [ "$line" == "tty1" ]
+		then
+			systemConsoleCounter=$((systemConsoleCounter+1))
+		else	
+			systemConsoleCounter=$((systemConsoleCounter+1))
+		fi
+	fi
+done < "$systemConsole"
+
+read -d '' correctsyscon << "BLOCKED"
+vc/1
+tty1
+BLOCKED
+
+
+if [ $systemConsoleCounter != 2 ]
+then
+	echo "$correctsyscon" > /etc/securetty
+	echo "Remediation completed."
+else
+	echo "No remediation needed."
+fi
+
+
+
+#11.6
+
+pamsu=$(grep pam_wheel.so /etc/pam.d/su | grep required)
+if [[ $pamsu =~ ^#auth.*required ]]
+then
+sed -i 's/#.*pam_wheel.so use_uid/auth            required        pam_wheel.so use_uid/' /etc/pam.d/su
+echo "Remediation completed."
+else
+echo "No remediation needed."
+fi
+
+pamwheel=$(grep wheel /etc/group)
+if [[ $pamwheel =~ ^wheel.*root ]]
+then
+echo "No remediation is needed."
+else
+usermod -aG wheel root
+echo "Remediation completed."
+fi
+
+
